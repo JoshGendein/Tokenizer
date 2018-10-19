@@ -2,16 +2,19 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
+using Tokenizer.src.Models;
+using System.Text.RegularExpressions;
 
 namespace Tokenizer.src
 {
     public class TokenHandler
     {
-        private List<String> Documents { get; set; }
+        private static readonly Regex regex = new Regex("[A-Za-z]+");
+        private List<String> Files { get; set; }
         private Thread[] threads;
-        public TokenHandler(List<String> documents, int threadCount)
+        public TokenHandler(List<String> files, int threadCount)
         {
-            this.Documents = documents;
+            this.Files = files;
             this.threads = new Thread[threadCount];
 
             //Establish DB connection.
@@ -22,10 +25,10 @@ namespace Tokenizer.src
         {
             for (int i = 0; i < threads.Length; i++)
             {
-                var thisHandlersDocumentSet = DivideDocuments(i);
-                var handlerThread = new Thread(new ThreadStart(this.Tokenize));
-                threads[i] = handlerThread;
-                handlerThread.Start();
+                var Paths = DivideFiles(i);
+                var currentThread = new Thread(() => this.ParseFiles(Paths));
+                threads[i] = currentThread;
+                currentThread.Start();
             }
 
             foreach (var thread in threads)
@@ -34,21 +37,53 @@ namespace Tokenizer.src
             }
         }
 
-        private void Tokenize()
-        {
-            
+        private void ParseFiles(List<string> paths)
+        { 
+            foreach(var path in paths)
+            {
+                var lines = File.ReadAllLines(path);
+                var document = Tokenize(lines);
+
+                AddToDB(document);
+            }
         }
 
-        //Takes the list of all documents and divides them into smaller lists so each thread can access their individual set.
-        private List<String> DivideDocuments(int index)
+        private void AddToDB(Document document)
+        {
+            var json = Newtonsoft.Json.JsonConvert.SerializeObject(document);
+            //TO DO: Put in logic for DB.
+        }
+
+        private Document Tokenize(string[] lines)
+        {
+            var document = new Document();
+            var tokens = new Dictionary<string, int>();
+
+            foreach(var line in lines)
+            {
+                foreach (Match match in regex.Matches(line))
+                {
+                    if (!tokens.TryGetValue(match.Value, out int currentCount))
+                        tokens.Add(match.Value, 1);
+                    else
+                        tokens[match.Value] = currentCount + 1;
+                    document.TotalWordCount++;
+                }
+            }
+            document.Tokens = tokens;
+            return document;
+        }
+
+        //Takes the full list of all files and divides them into smaller lists so each thread can access an individual set.
+        private List<String> DivideFiles(int index)
         {
             var finalSet = new List<String>();
 
-            for (int i = 0; i < Documents.Count; i++)
+            for (int i = 0; i < Files.Count; i++)
             {
                 if ((i % threads.Length) == index)
                 {
-                    finalSet.Add(Documents[i]);
+                    finalSet.Add(Files[i]);
                 }
             }
 
