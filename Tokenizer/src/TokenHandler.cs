@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Threading;
 using Tokenizer.src.Models;
 using System.Text.RegularExpressions;
@@ -17,7 +16,7 @@ namespace Tokenizer.src
             this.Files = files;
             this.threads = new Thread[threadCount];
 
-            //Establish DB connection.
+            CosmosDB<Page>.Initialize();
 
         }
 
@@ -26,7 +25,7 @@ namespace Tokenizer.src
             for (int i = 0; i < threads.Length; i++)
             {
                 var Paths = DivideFiles(i);
-                var currentThread = new Thread(() => this.ParseFiles(Paths));
+                Thread currentThread = new Thread(() => ParseFiles(Paths));
                 threads[i] = currentThread;
                 currentThread.Start();
             }
@@ -41,22 +40,21 @@ namespace Tokenizer.src
         { 
             foreach(var path in paths)
             {
-                var lines = File.ReadAllLines(path);
+                var lines = System.IO.File.ReadAllLines(path);
                 var document = Tokenize(lines);
 
-                AddToDB(document);
+                AddToDBAsync(document);
             }
         }
 
-        private void AddToDB(Document document)
+        private async void AddToDBAsync(Page document)
         {
-            var json = Newtonsoft.Json.JsonConvert.SerializeObject(document);
-            //TO DO: Put in logic for DB.
+            await CosmosDB<Page>.CreateItemAsync(document);
         }
 
-        private Document Tokenize(string[] lines)
+        private Page Tokenize(string[] lines)
         {
-            var document = new Document();
+            var document = new Models.Page();
             var tokens = new Dictionary<string, int>();
 
             foreach(var line in lines)

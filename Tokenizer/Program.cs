@@ -2,8 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using Tokenizer.src;
+
 
 namespace Tokenizer
 {
@@ -13,6 +13,7 @@ namespace Tokenizer
         private static readonly int maxThreads = Environment.ProcessorCount;
         static void Main(string[] args)
         {
+            
             Console.WriteLine("Please enter a directory relative to this program:");
             var inputDirectory = Console.ReadLine();
             var directory = System.Environment.CurrentDirectory + inputDirectory;
