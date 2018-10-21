@@ -11,6 +11,7 @@ namespace Tokenizer.src
         private static readonly Regex regex = new Regex("[A-Za-z]+");
         private List<String> Files { get; set; }
         private Thread[] threads;
+        private static SemaphoreSlim DatabaseLock = new SemaphoreSlim(1, 1);
         public TokenHandler(List<String> files, int threadCount)
         {
             this.Files = files;
@@ -49,7 +50,9 @@ namespace Tokenizer.src
 
         private async void AddToDBAsync(Page document)
         {
+            DatabaseLock.Wait();
             await CosmosDB<Page>.CreateItemAsync(document);
+            DatabaseLock.Release();
         }
 
         private Page Tokenize(string[] lines)
