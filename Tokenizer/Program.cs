@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using Tokenizer.src;
 
-
 namespace Tokenizer
 {
     public class Program
@@ -16,7 +15,7 @@ namespace Tokenizer
             
             Console.WriteLine("Please enter a directory relative to this program:");
             var inputDirectory = Console.ReadLine();
-            var directory = System.Environment.CurrentDirectory + inputDirectory;
+            var directory = Environment.CurrentDirectory + inputDirectory;
             Console.WriteLine(directory);
 
             if(!CheckDirectory(directory))
@@ -24,11 +23,19 @@ namespace Tokenizer
                 return;
             }
 
+            var client = new DBClient();
+            client.InitializeAsync("Tokenizer", "DF").Wait();
+            
             //Gather a list of file paths from directory.
             documents = Directory.EnumerateFiles(directory, "*.txt").ToList();
 
+            Console.WriteLine("Using {0} threads to process {1} files", maxThreads, documents.Count);
+            Console.WriteLine("Starting time is {0}", DateTime.Now.ToString("h:mm:ss tt"));
+
             var handler = new TokenHandler(documents, maxThreads);
             handler.Run();
+
+            Console.WriteLine("Ending time is {0}", DateTime.Now.ToString("h:mm:ss tt"));
         }
         public static bool CheckDirectory(String directory)
         {

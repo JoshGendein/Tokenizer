@@ -1,24 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Tokenizer.src.Models
+﻿namespace Tokenizer.src.Models
 {
-    class Token
+    public class Token
     {
-        private String Word { get; set; }
-
-        private int TokenFrequency { get; set; }
-
-        public Token(String Word)
-        {
-            this.Word = Word;
-        }
-
-        public void IncreaseTF()
-        {
-            this.TokenFrequency++;
-        }
-
+        public string Word;
+        public string DocumentId;
+        public float TF;
+        public float TFiDF;
     }
 }

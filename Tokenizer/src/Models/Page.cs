@@ -1,13 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System.Collections.Generic;
 
 namespace Tokenizer.src.Models
 {
-    class Page
+    public class Page
     {
+        public string Id;
+
         public Dictionary<string, int> Tokens;
-        public int TotalWordCount { get; set; }
+
+        public int TotalWordCount;
 
     }
 
