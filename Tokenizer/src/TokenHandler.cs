@@ -4,6 +4,7 @@ using System.Threading;
 using Tokenizer.src.Models;
 using System.Text.RegularExpressions;
 using System.IO;
+using Microsoft.EntityFrameworkCore;
 
 namespace Tokenizer.src
 {
@@ -36,14 +37,9 @@ namespace Tokenizer.src
 
         private void ProcessFiles(List<string> paths)
         {
-            //Give each thread there own DB client.
-            var client = new DBClient();
-
-            //Reuse each model, just change the values.
-            var token = new Token();
             var page = new Page();
 
-            foreach(var path in paths)
+            foreach (var path in paths)
             {
                 var lines = File.ReadAllLines(path);
                 var pageValues = Tokenize(lines);
@@ -52,14 +48,38 @@ namespace Tokenizer.src
                 page.TotalWordCount = pageValues.Item2;
                 page.Id = Path.GetFileName(path);
 
-                foreach (var word in page.Tokens)
-                {
-                    token.Word = word.Key;
-                    token.TF = (float) word.Value / page.TotalWordCount;
-                    token.DocumentId = page.Id;
+                AddToDB(page);
+            }
+        }
 
-                    client.InsertAsync(token, "TF").Wait();
-                }
+        private void AddToDB(Page page)
+        {
+            using (var db = new TokenizerDbContext())
+            {
+                var strategy = db.Database.CreateExecutionStrategy();
+
+                strategy.Execute(() =>
+                {
+                    using (var context = new TokenizerDbContext())
+                    {
+                        using (var transaction = context.Database.BeginTransaction())
+                        {
+                            foreach (var word in page.Tokens)
+                            {
+                                var token = new TokenModel
+                                {
+                                    Word = word.Key,
+                                    TF = (float)word.Value / page.TotalWordCount,
+                                    DocumentId = page.Id
+                                };
+                                context.Tokens.Add(token);
+                                context.SaveChanges();
+                            }
+                            transaction.Commit();
+                        }
+
+                    }
+                });
             }
         }
 
@@ -72,10 +92,13 @@ namespace Tokenizer.src
             {
                 foreach (Match match in regex.Matches(line))
                 {
-                    if (!tokens.TryGetValue(match.Value, out int currentCount))
-                        tokens.Add(match.Value, 1);
+                    //Temporary fix because DB couldnt handle case sensitive PK.
+                    var word = match.Value.ToLower();
+
+                    if (!tokens.TryGetValue(word, out int currentCount))
+                        tokens.Add(word, 1);
                     else
-                        tokens[match.Value] = currentCount + 1;
+                        tokens[word] = currentCount + 1;
                     wordCount++;
                 }
             }

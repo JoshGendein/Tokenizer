@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -9,7 +10,7 @@ namespace Tokenizer
     public class Program
     {
         private static List<String> documents;
-        private static readonly int maxThreads = Environment.ProcessorCount;
+        private static readonly int threads = Environment.ProcessorCount;
         static void Main(string[] args)
         {
             
@@ -23,16 +24,20 @@ namespace Tokenizer
                 return;
             }
 
-            var client = new DBClient();
-            client.InitializeAsync("Tokenizer", "DF").Wait();
-            
+            //Initialize DB
+            using (var context = new TokenizerDbContext())
+            {
+                context.Database.EnsureCreated();
+                context.Database.ExecuteSqlCommand("TRUNCATE TABLE dbo.Tokens");
+            }
+
             //Gather a list of file paths from directory.
             documents = Directory.EnumerateFiles(directory, "*.txt").ToList();
 
-            Console.WriteLine("Using {0} threads to process {1} files", maxThreads, documents.Count);
+            Console.WriteLine("Using {0} threads to process {1} files", threads, documents.Count);
             Console.WriteLine("Starting time is {0}", DateTime.Now.ToString("h:mm:ss tt"));
 
-            var handler = new TokenHandler(documents, maxThreads);
+            var handler = new TokenHandler(documents, threads);
             handler.Run();
 
             Console.WriteLine("Ending time is {0}", DateTime.Now.ToString("h:mm:ss tt"));
