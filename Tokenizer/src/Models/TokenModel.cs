@@ -1,14 +1,13 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.Collections.Generic;
 
 namespace Tokenizer.src.Models
 {
     public class TokenModel
     {
-        [Key]
         public string Word { get; set; }
-        [Key]
         public string DocumentId { get; set; }
         public float TF { get; set; }
         public float TFiDF { get; set; }
+        public List<int> Positions { get; set; }
     }
 }

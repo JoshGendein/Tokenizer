@@ -4,7 +4,7 @@ using System.Threading;
 using Tokenizer.src.Models;
 using System.Text.RegularExpressions;
 using System.IO;
-using Microsoft.EntityFrameworkCore;
+using System.Data.SqlClient;
 
 namespace Tokenizer.src
 {
@@ -37,72 +37,59 @@ namespace Tokenizer.src
 
         private void ProcessFiles(List<string> paths)
         {
-            var page = new Page();
 
-            foreach (var path in paths)
+            foreach (var file in paths)
             {
-                var lines = File.ReadAllLines(path);
-                var pageValues = Tokenize(lines);
+                var tokens = Tokenize(file);
 
-                page.Tokens = pageValues.Item1;
-                page.TotalWordCount = pageValues.Item2;
-                page.Id = Path.GetFileName(path);
-
-                AddToDB(page);
+                AddToDB(tokens);
             }
         }
 
-        private void AddToDB(Page page)
+        private void AddToDB(List<TokenModel> tokens)
         {
-            using (var db = new TokenizerDbContext())
+            using (var connection = new SqlConnection())
             {
-                var strategy = db.Database.CreateExecutionStrategy();
-
-                strategy.Execute(() =>
-                {
-                    using (var context = new TokenizerDbContext())
-                    {
-                        using (var transaction = context.Database.BeginTransaction())
-                        {
-                            foreach (var word in page.Tokens)
-                            {
-                                var token = new TokenModel
-                                {
-                                    Word = word.Key,
-                                    TF = (float)word.Value / page.TotalWordCount,
-                                    DocumentId = page.Id
-                                };
-                                context.Tokens.Add(token);
-                                context.SaveChanges();
-                            }
-                            transaction.Commit();
-                        }
-
-                    }
-                });
+                var client = new DBClient(connection);
+                
+                client.BulkInsertTokens(tokens);
             }
         }
 
-        private ValueTuple<Dictionary<string, int>, int> Tokenize(string[] lines)
+        private List<TokenModel> Tokenize(string path)
         {
-            var tokens = new Dictionary<string, int>();
+
+            var wordList = new Dictionary<string, List<int>>();
             var wordCount = 0;
 
-            foreach(var line in lines)
+            var lines = File.ReadAllLines(path);
+            foreach (var line in lines)
             {
                 foreach (Match match in regex.Matches(line))
                 {
+                    wordCount++;
                     //Temporary fix because DB couldnt handle case sensitive PK.
                     var word = match.Value.ToLower();
 
-                    if (!tokens.TryGetValue(word, out int currentCount))
-                        tokens.Add(word, 1);
-                    else
-                        tokens[word] = currentCount + 1;
-                    wordCount++;
+                    if (!wordList.TryGetValue(word, out List<int> positionList))
+                        wordList.Add(word, new List<int>());
+
+                    wordList[word].Add(wordCount);
+
                 }
             }
-            return (tokens, wordCount);
+            var tokens = new List<TokenModel>();
+            foreach (var word in wordList)
+            {
+                tokens.Add(new TokenModel
+                {
+                    Word = word.Key,
+                    DocumentId = Path.GetFileName(path),
+                    Positions = word.Value,
+                    TF = (float) word.Value.Count / wordCount
+                });
+            }
+            return tokens;
         }
 
         //Takes the full list of all files and divides them into smaller lists so each thread can access an individual set.

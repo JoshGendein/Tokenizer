@@ -8,7 +8,6 @@ namespace Tokenizer.src
     public class TokenizerDbContext : DbContext
     {
         public DbSet<TokenModel> Tokens { get; set; }
-
         public TokenizerDbContext()
         {
             ChangeTracker.AutoDetectChangesEnabled = false;
@@ -18,7 +17,6 @@ namespace Tokenizer.src
         {
             base.OnConfiguring(optionsBuilder);
             optionsBuilder.UseSqlServer(@"Server=.;Database=Tokenizer;Trusted_Connection=True;MultipleActiveResultSets=true");
-            
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

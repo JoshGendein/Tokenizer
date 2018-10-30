@@ -1,6 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Data.SqlClient;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Tokenizer.src;
@@ -25,22 +26,23 @@ namespace Tokenizer
             }
 
             //Initialize DB
-            using (var context = new TokenizerDbContext())
+            using (var connection = new SqlConnection())
             {
-                context.Database.EnsureCreated();
-                context.Database.ExecuteSqlCommand("TRUNCATE TABLE dbo.Tokens");
+                var client = new DBClient(connection);
+                client.Initialize();
             }
 
             //Gather a list of file paths from directory.
             documents = Directory.EnumerateFiles(directory, "*.txt").ToList();
 
             Console.WriteLine("Using {0} threads to process {1} files", threads, documents.Count);
-            Console.WriteLine("Starting time is {0}", DateTime.Now.ToString("h:mm:ss tt"));
+            var stopwatch = Stopwatch.StartNew();
 
             var handler = new TokenHandler(documents, threads);
             handler.Run();
 
-            Console.WriteLine("Ending time is {0}", DateTime.Now.ToString("h:mm:ss tt"));
+            stopwatch.Stop();
+            Console.WriteLine($"Elapsed time: {stopwatch.ElapsedMilliseconds}ms");
         }
         public static bool CheckDirectory(String directory)
         {
