@@ -2,12 +2,14 @@
 using System.Data.SqlClient;
 using System.Data;
 using Tokenizer.src.Models;
+using System;
 
 namespace Tokenizer.src
 {
     public class DBClient
     {
         private static readonly string ConnectionString = "Server=.;Database=Tokenizer;Trusted_Connection=True;";
+        //private static readonly string ConnectionString = "Server=.;Database=Tokenizer;MultipleActiveResultSets=true;User Id=sa;Password=GenSJS$afe;";
         private readonly SqlConnection connection;
 
 
@@ -32,19 +34,29 @@ namespace Tokenizer.src
             var createTable2 = this.connection.CreateCommand();
             createTable2.CommandText = "IF NOT EXISTS(SELECT * FROM sys.tables WHERE name = 'Tokens') " +
                                       "BEGIN " +
-                                          "CREATE TABLE Positions(Word varchar(255) not null, DocumentId varchar(255) not null, TF real, TFiDF real,  primary key (Word, DocumentId))" +
+                                          "CREATE TABLE Tokens(Word varchar(255) not null, DocumentId varchar(255) not null, TF decimal(12,10), TFiDF decimal(12,10),  primary key (Word, DocumentId))" +
                                       "END " +
                                       "ELSE BEGIN " +
                                           "TRUNCATE TABLE dbo.Tokens END";
 
+            var createTable3 = this.connection.CreateCommand();
+            createTable3.CommandText = "IF NOT EXISTS(SELECT * FROM sys.tables WHERE name = 'DF') " +
+                                      "BEGIN " +
+                                          "CREATE TABLE DF(Word varchar(255) not null, DocumentFrequency int,  primary key (Word))" +
+                                      "END " +
+                                      "ELSE BEGIN " +
+                                          "TRUNCATE TABLE dbo.DF END";
+
             createTable1.ExecuteNonQuery();
             createTable2.ExecuteNonQuery();
+            createTable3.ExecuteNonQuery();
         }
+
 
         public void BulkInsertTokens(List<TokenModel> tokens)
         {
-            var tokenTable = GetTableStructure(new DataTable(), "Tokens");
-            var positionTable = GetTableStructure(new DataTable(), "Positions");
+            var tokenTable = GetTableStructure("Tokens");
+            var positionTable = GetTableStructure("Positions");
 
             foreach (var token in tokens)
             {
@@ -73,8 +85,10 @@ namespace Tokenizer.src
             Insert(positionTable, "Positions");
         }
 
-        private DataTable GetTableStructure(DataTable table, string tableName)
+        private DataTable GetTableStructure(string tableName)
         {
+            var table = new DataTable();
+
             using (var adapter = new SqlDataAdapter($"SELECT TOP 0 * FROM {tableName}", this.connection))
             {
                 adapter.Fill(table);
@@ -90,6 +104,20 @@ namespace Tokenizer.src
                 bulk.DestinationTableName = tableName;
                 bulk.WriteToServer(table);
             }
+        }
+
+        public void FillDF()
+        {
+            var fillDF = this.connection.CreateCommand();
+            fillDF.CommandText = "INSERT INTO dbo.DF(Word, DocumentFrequency) SELECT Word, COUNT(Word) as DocumentFrequency from dbo.Tokens GROUP BY Word";
+            fillDF.ExecuteNonQuery();
+        }
+
+        public void CalculateTFiDF(int TotalDocumentCount)
+        {
+            var tfidf = this.connection.CreateCommand();
+            tfidf.CommandText = $"UPDATE Tokens SET Tokens.TFiDF = (Tokens.TF * LOG({TotalDocumentCount}/DF.DocumentFrequency)) FROM Tokens INNER JOIN DF ON Tokens.Word = DF.Word";
+            tfidf.ExecuteNonQuery();
         }
     }
 }

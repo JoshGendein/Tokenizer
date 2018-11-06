@@ -12,7 +12,7 @@ namespace Tokenizer.src
     {
         private static readonly Regex regex = new Regex("[A-Za-z]+");
         private List<String> Files { get; set; }
-        private Thread[] threads;
+        private readonly Thread[] threads;
         public TokenHandler(List<String> files, int threadCount)
         {
             this.Files = files;
@@ -33,11 +33,19 @@ namespace Tokenizer.src
             {
                 thread.Join();
             }
+
+            //After documents are tokenized. Query the DB and fill the DB table.
+            using (var connection = new SqlConnection())
+            {
+                var client = new DBClient(connection);
+
+                client.FillDF();
+                client.CalculateTFiDF(Files.Count);
+            }
         }
 
         private void ProcessFiles(List<string> paths)
         {
-
             foreach (var file in paths)
             {
                 var tokens = Tokenize(file);
@@ -68,7 +76,6 @@ namespace Tokenizer.src
                 foreach (Match match in regex.Matches(line))
                 {
                     wordCount++;
-                    //Temporary fix because DB couldnt handle case sensitive PK.
                     var word = match.Value.ToLower();
 
                     if (!wordList.TryGetValue(word, out List<int> positionList))
@@ -92,7 +99,7 @@ namespace Tokenizer.src
             return tokens;
         }
 
-        //Takes the full list of all files and divides them into smaller lists so each thread can access an individual set.
+        //Divides the files. Each thread is given a number and gets all the files mod thread count.
         private List<String> DivideFiles(int index)
         {
             var finalSet = new List<String>();
