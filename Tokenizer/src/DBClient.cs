@@ -9,7 +9,6 @@ namespace Tokenizer.src
     public class DBClient
     {
         private static readonly string ConnectionString = "Server=.;Database=Tokenizer;Trusted_Connection=True;";
-        //private static readonly string ConnectionString = "Server=.;Database=Tokenizer;MultipleActiveResultSets=true;User Id=sa;Password=GenSJS$afe;";
         private readonly SqlConnection connection;
 
 
@@ -115,9 +114,31 @@ namespace Tokenizer.src
 
         public void CalculateTFiDF(int TotalDocumentCount)
         {
+            //var tfidf = this.connection.CreateCommand();
+            //tfidf.CommandText = $"UPDATE Tokens SET Tokens.TFiDF = (Tokens.TF * LOG({TotalDocumentCount}/DF.DocumentFrequency)) FROM Tokens INNER JOIN DF ON Tokens.Word = DF.Word";
+            //tfidf.ExecuteNonQuery();
+
+            //1. Get all unique words. This is from the DF table.
+            var DF = new DataTable();
+            using (var adapter = new SqlDataAdapter($"SELECT * FROM dbo.DF", this.connection))
+            {
+                adapter.Fill(DF);
+            };
+            //2. For every uniqu word calculate it's TFiDF
             var tfidf = this.connection.CreateCommand();
-            tfidf.CommandText = $"UPDATE Tokens SET Tokens.TFiDF = (Tokens.TF * LOG({TotalDocumentCount}/DF.DocumentFrequency)) FROM Tokens INNER JOIN DF ON Tokens.Word = DF.Word";
-            tfidf.ExecuteNonQuery();
+            Console.WriteLine("Before loop: ");
+            for(int i =0; i < DF.Rows.Count; i++)
+            {
+                var row = DF.Rows[i];
+                var currentWord = row["Word"];
+                var currentDF = row["DocumentFrequency"];
+                tfidf.CommandText = 
+                    $"UPDATE dbo.Tokens SET Tokens.TFiDF = (Tokens.TF * LOG({TotalDocumentCount}/{currentDF})) FROM Tokens WHERE Tokens.Word = '{currentWord}'";
+                tfidf.ExecuteNonQuery();
+                if(i % 1000 == 0)
+                    Console.WriteLine($"{i} words completed.");
+            }
+
         }
     }
 }

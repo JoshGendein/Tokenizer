@@ -34,12 +34,17 @@ namespace Tokenizer.src
                 thread.Join();
             }
 
+            Console.WriteLine("Finished insertion. Working on DF");
+
             //After documents are tokenized. Query the DB and fill the DB table.
             using (var connection = new SqlConnection())
             {
                 var client = new DBClient(connection);
 
                 client.FillDF();
+
+                Console.WriteLine("Finished DF, starting on TFiDF");
+
                 client.CalculateTFiDF(Files.Count);
             }
         }
